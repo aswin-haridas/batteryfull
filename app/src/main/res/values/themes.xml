@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.CallerInfo" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F6F5FA</item>
+        <item name="android:colorBackground">#F6F5FA</item>
+        <item name="android:statusBarColor">#F6F5FA</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#F6F5FA</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>
