@@ -47,6 +47,20 @@ The output APK is located at:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+### Compile Release Artifacts
+```bash
+# Build signed Release APK
+./gradlew assembleRelease
+
+# Build Google Play / Galaxy Store App Bundle (AAB)
+./gradlew bundleRelease
+```
+The release output artifacts are located at:
+```
+app/build/outputs/apk/release/app-release.apk
+app/build/outputs/bundle/release/app-release.aab
+```
+
 ### Install & Grant Permissions via ADB
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
