@@ -1,4 +1,4 @@
-package com.aswin.callerinfo
+package com.aswin.batteryfull
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -14,6 +14,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.IBinder
 import android.os.SystemClock
+import android.provider.DocumentsContract
 import androidx.core.app.NotificationCompat
 
 class BatteryMonitorService : Service() {
@@ -21,14 +22,18 @@ class BatteryMonitorService : Service() {
     companion object {
         const val CHANNEL_ID = "battery_monitor"
         const val NOTIF_ID = 1
-        const val EXTRA_THRESHOLD = "threshold"
-        const val EXTRA_FOLDER_URI = "folder_uri"
+        const val PREFS = "battery_prefs"
         private const val COOLDOWN_MS = 30 * 60 * 1000L
+
+        @Volatile
+        var isRunning = false
+            private set
     }
 
     private var threshold = 80
     private var folderUri: Uri? = null
     private var lastPlayedAt = 0L
+    private var lastText: String? = null
     private var player: MediaPlayer? = null
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -42,7 +47,7 @@ class BatteryMonitorService : Service() {
 
             if (isCharging && pct >= threshold) {
                 val now = SystemClock.elapsedRealtime()
-                if (now - lastPlayedAt >= COOLDOWN_MS) {
+                if (lastPlayedAt == 0L || now - lastPlayedAt >= COOLDOWN_MS) {
                     playRandom()
                     lastPlayedAt = now
                     updateNotification("Battery at $pct% — alert played")
@@ -50,6 +55,8 @@ class BatteryMonitorService : Service() {
                     updateNotification("Battery at $pct% ≥ $threshold% (cooldown)")
                 }
             } else {
+                // Unplugged: next plug-in above threshold alerts immediately.
+                if (!isCharging) lastPlayedAt = 0L
                 val chargingStr = if (isCharging) "charging" else "not charging"
                 updateNotification("Battery $pct% ($chargingStr), threshold $threshold%")
             }
@@ -59,18 +66,21 @@ class BatteryMonitorService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        startForeground(NOTIF_ID, buildNotification("Monitoring battery…"))
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        isRunning = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        threshold = intent?.getIntExtra(EXTRA_THRESHOLD, 80) ?: 80
-        folderUri = intent?.getStringExtra(EXTRA_FOLDER_URI)?.let { Uri.parse(it) }
-
-        startForeground(NOTIF_ID, buildNotification("Monitoring battery…"))
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        // Read from prefs so a START_STICKY restart (null intent) keeps the user's settings.
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        threshold = prefs.getInt("threshold", 80)
+        folderUri = prefs.getString("folder_uri", null)?.let(Uri::parse)
         return START_STICKY
     }
 
     override fun onDestroy() {
+        isRunning = false
         unregisterReceiver(batteryReceiver)
         player?.release()
         player = null
@@ -81,50 +91,36 @@ class BatteryMonitorService : Service() {
 
     private fun playRandom() {
         val uri = folderUri ?: return
-        val children = try {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            uri, DocumentsContract.getTreeDocumentId(uri)
+        )
+        val audioUris = try {
             contentResolver.query(
-                androidx.documentfile.provider.DocumentFile.fromTreeUri(this, uri)!!.uri
-                    .let { treeToChildrenUri(it) },
-                arrayOf(
-                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
-                ),
+                childrenUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_MIME_TYPE),
                 null, null, null
-            )
-        } catch (_: Exception) { null } ?: return
-
-        val audioUris = mutableListOf<Uri>()
-        children.use { c ->
-            val idCol = c.getColumnIndexOrThrow(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val mimeCol = c.getColumnIndexOrThrow(android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE)
-            while (c.moveToNext()) {
-                val mime = c.getString(mimeCol) ?: continue
-                if (mime.startsWith("audio/")) {
-                    val docId = c.getString(idCol)
-                    audioUris += android.provider.DocumentsContract.buildDocumentUriUsingTree(uri, docId)
+            )?.use { c ->
+                buildList<Uri> {
+                    while (c.moveToNext()) {
+                        if (c.getString(1)?.startsWith("audio/") == true) {
+                            add(DocumentsContract.buildDocumentUriUsingTree(uri, c.getString(0)))
+                        }
+                    }
                 }
             }
-        }
+        } catch (_: Exception) { null }
 
-        val pick = audioUris.randomOrNull() ?: return
+        val pick = audioUris?.randomOrNull() ?: return
         player?.release()
-        player = MediaPlayer().apply {
-            try {
+        player = try {
+            MediaPlayer().apply {
                 setDataSource(this@BatteryMonitorService, pick)
-                prepare()
-                start()
                 setOnCompletionListener { it.release(); player = null }
-            } catch (_: Exception) {
-                release(); player = null
+                setOnPreparedListener { it.start() }
+                prepareAsync()
             }
-        }
+        } catch (_: Exception) { null }
     }
-
-    private fun treeToChildrenUri(treeUri: Uri): Uri =
-        android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(
-            treeUri,
-            android.provider.DocumentsContract.getTreeDocumentId(treeUri)
-        )
 
     private fun createChannel() {
         val ch = NotificationChannel(CHANNEL_ID, "Battery Monitor", NotificationManager.IMPORTANCE_LOW)
@@ -140,14 +136,18 @@ class BatteryMonitorService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
-            .setContentTitle("Battery Full Alert")
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setContentIntent(pi)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 
+    // ACTION_BATTERY_CHANGED fires on every voltage/temp tick; only repost when the text changes.
     private fun updateNotification(text: String) {
+        if (text == lastText) return
+        lastText = text
         getSystemService(NotificationManager::class.java)
             .notify(NOTIF_ID, buildNotification(text))
     }

@@ -1,12 +1,12 @@
-package com.aswin.callerinfo
+package com.aswin.batteryfull
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import com.aswin.callerinfo.ui.screens.MainScreen
-import com.aswin.callerinfo.ui.theme.CallerInfoTheme
+import com.aswin.batteryfull.ui.screens.MainScreen
+import com.aswin.batteryfull.ui.theme.BatteryFullTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CallerInfoTheme {
+            BatteryFullTheme {
                 MainScreen(viewModel)
             }
         }

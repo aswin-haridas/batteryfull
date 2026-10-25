@@ -1,4 +1,4 @@
-package com.aswin.callerinfo.ui.theme
+package com.aswin.batteryfull.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

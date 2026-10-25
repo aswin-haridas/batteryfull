@@ -1,4 +1,4 @@
-package com.aswin.callerinfo
+package com.aswin.batteryfull
 
 import android.app.Application
 import android.content.Context
@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.update
 data class MonitorState(
     val threshold: Int = 80,
     val folderUri: Uri? = null,
-    val isRunning: Boolean = false
+    val isRunning: Boolean = BatteryMonitorService.isRunning
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val prefs = app.getSharedPreferences("battery_prefs", Context.MODE_PRIVATE)
+    private val prefs = app.getSharedPreferences(BatteryMonitorService.PREFS, Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
         MonitorState(

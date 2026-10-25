@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.CallerInfo" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.BatteryFull" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#F6F5FA</item>
         <item name="android:colorBackground">#F6F5FA</item>
         <item name="android:statusBarColor">#F6F5FA</item>

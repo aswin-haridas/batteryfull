@@ -1,6 +1,8 @@
-package com.aswin.callerinfo.ui.screens
+package com.aswin.batteryfull.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -16,12 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aswin.callerinfo.BatteryMonitorService
-import com.aswin.callerinfo.MainViewModel
-import com.aswin.callerinfo.ui.theme.*
+import com.aswin.batteryfull.BatteryMonitorService
+import com.aswin.batteryfull.MainViewModel
+import com.aswin.batteryfull.R
+import com.aswin.batteryfull.ui.theme.*
+import kotlin.math.roundToInt
 
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
@@ -39,11 +44,16 @@ fun MainScreen(viewModel: MainViewModel) {
         viewModel.setFolderUri(uri)
     }
 
+    // Without this on Android 13+, the status notification is silently hidden.
+    val notifPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {}
+
     fun toggleService() {
-        val intent = Intent(ctx, BatteryMonitorService::class.java).apply {
-            putExtra(BatteryMonitorService.EXTRA_THRESHOLD, state.threshold)
-            putExtra(BatteryMonitorService.EXTRA_FOLDER_URI, state.folderUri?.toString())
+        if (!state.isRunning && Build.VERSION.SDK_INT >= 33) {
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        val intent = Intent(ctx, BatteryMonitorService::class.java)
         if (state.isRunning) {
             ctx.stopService(intent)
         } else {
@@ -62,7 +72,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Text(
-                    "Battery Full",
+                    stringResource(R.string.app_name),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = SurfaceDark
@@ -126,7 +136,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     Spacer(Modifier.height(12.dp))
                     Slider(
                         value = state.threshold.toFloat(),
-                        onValueChange = { viewModel.setThreshold(it.toInt()) },
+                        onValueChange = { viewModel.setThreshold(it.roundToInt()) },
                         valueRange = 10f..100f,
                         steps = 89,
                         colors = SliderDefaults.colors(
@@ -209,7 +219,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     .height(56.dp),
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (state.isRunning) MissedRed else SurfaceDark,
+                    containerColor = if (state.isRunning) AlertRed else SurfaceDark,
                     contentColor = if (state.isRunning) SurfaceCard else PrimaryLime,
                     disabledContainerColor = BorderSubtle,
                     disabledContentColor = TextMuted

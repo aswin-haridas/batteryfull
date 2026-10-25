@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "callerinfo"
+rootProject.name = "batteryfull"
 include(":app")

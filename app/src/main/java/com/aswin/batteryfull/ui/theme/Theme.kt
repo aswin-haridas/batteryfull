@@ -1,7 +1,6 @@
-package com.aswin.callerinfo.ui.theme
+package com.aswin.batteryfull.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -23,7 +22,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun CallerInfoTheme(
+fun BatteryFullTheme(
     content: @Composable () -> Unit
 ) {
     val view = LocalView.current
